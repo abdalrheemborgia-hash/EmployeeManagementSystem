@@ -1,0 +1,19 @@
+HOW TO GET THE SQLite JDBC DRIVER
+===================================
+
+1. Go to: https://github.com/xerial/sqlite-jdbc/releases
+
+2. Download the latest .jar file, for example:
+   sqlite-jdbc-3.47.1.0.jar
+
+3. Place the downloaded .jar file IN THIS FOLDER (lib/)
+
+4. Your lib/ folder should look like:
+   lib/
+     sqlite-jdbc-3.47.1.0.jar   <-- the driver you downloaded
+     DOWNLOAD_DRIVER.txt          <-- this file
+
+5. Update compile.bat / compile.sh if the filename differs
+
+Alternative: Direct download link (may change):
+   https://search.maven.org/artifact/org.xerial/sqlite-jdbc
