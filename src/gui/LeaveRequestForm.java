@@ -1,11 +1,13 @@
 package gui;
 
-import database.LeaveRequestDAO;
 import model.LeaveRequest;
 import exception.EmployeeException;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import dataaccess.LeaveRequestDAO;
+
 import java.awt.*;
 import java.time.LocalDate;
 import java.util.List;

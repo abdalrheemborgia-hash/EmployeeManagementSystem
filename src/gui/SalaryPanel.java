@@ -1,12 +1,14 @@
 package gui;
 
-import database.DatabaseConnection;
-import database.EmployeeDAO;
 import model.Employee;
 import exception.EmployeeException;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import dataaccess.DatabaseConnection;
+import dataaccess.EmployeeDAO;
+
 import java.awt.*;
 import java.sql.*;
 import java.util.List;

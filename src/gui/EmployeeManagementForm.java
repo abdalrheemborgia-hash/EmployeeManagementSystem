@@ -1,12 +1,13 @@
 package gui;
 
-import database.DatabaseConnection;
-import database.EmployeeDAO;
 import model.Employee;
 import exception.EmployeeException;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import dataaccess.DatabaseConnection;
+import service.EmployeeService;
 import java.awt.*;
 import java.sql.*;
 import java.util.List;
@@ -20,14 +21,14 @@ public class EmployeeManagementForm extends JFrame {
 
     private JTable            table;
     private DefaultTableModel tableModel;
-    private final EmployeeDAO dao;
+    private final EmployeeService employeeService; // استخدام كلاس الخدمة المباشر
 
     private JTextField   nameF, emailF, phoneF, positionF, salaryF, hireDateF;
     private JComboBox<String> deptCombo, shiftCombo, statusCombo;
     private JLabel       idLbl;
 
     public EmployeeManagementForm(String user, String role, int uid) {
-        this.dao = new EmployeeDAO();
+        this.employeeService = new EmployeeService(); // تشغيل كلاس الخدمة بنجاح
         buildUI();
         loadTable();
     }
@@ -37,23 +38,25 @@ public class EmployeeManagementForm extends JFrame {
         setSize(1060, 660);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
+       
         getContentPane().setBackground(AppColors.BG_MAIN);
 
         JPanel header = AppColors.headerBar("👥  إدارة الموظفين", "");
         header.setBackground(AppColors.PRIMARY);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        split.setDividerLocation(370);
+        split.setDividerLocation(690);
         split.setBorder(null);
-        split.setLeftComponent(buildForm());
-        split.setRightComponent(buildTable());
 
+        split.setLeftComponent(buildTable());   // الجدول يسار
+        split.setRightComponent(buildForm());   // الإدخال يمين
         add(header, BorderLayout.NORTH);
         add(split,  BorderLayout.CENTER);
         setVisible(true);
     }
 
     private JPanel buildForm() {
+   
         JPanel outer = new JPanel(new BorderLayout());
         outer.setBackground(AppColors.BG_MAIN);
         outer.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 6));
@@ -90,7 +93,12 @@ public class EmployeeManagementForm extends JFrame {
         deptCombo  = new JComboBox<>(loadDepts()); AppColors.styleCombo(deptCombo);
         shiftCombo = new JComboBox<>(new String[]{"صباحية","مسائية","ليلية"}); AppColors.styleCombo(shiftCombo);
         statusCombo= new JComboBox<>(new String[]{"نشط","غير نشط"}); AppColors.styleCombo(statusCombo);
-
+     	nameF.setHorizontalAlignment(JTextField.RIGHT);
+    	emailF.setHorizontalAlignment(JTextField.RIGHT);
+    	phoneF.setHorizontalAlignment(JTextField.RIGHT);
+    	positionF.setHorizontalAlignment(JTextField.RIGHT);
+    	salaryF.setHorizontalAlignment(JTextField.RIGHT);
+    	hireDateF.setHorizontalAlignment(JTextField.RIGHT);
         int row = 1;
         row = fRow(card, g, row, "المعرّف:",          idLbl,      false);
         row = fRow(card, g, row, "الاسم الكامل: *",  nameF,      true);
@@ -149,6 +157,9 @@ public class EmployeeManagementForm extends JFrame {
             public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(tableModel);
+        table.setComponentOrientation(
+        	    ComponentOrientation.RIGHT_TO_LEFT
+        	);
         AppColors.styleTable(table);
 
         // تلوين صفوف الحالة
@@ -183,15 +194,18 @@ public class EmployeeManagementForm extends JFrame {
     //  العمليات
     // ================================================================
     private void addEmp() {
-        try {
-            if (nameF.getText().trim().isEmpty() || emailF.getText().trim().isEmpty()) {
-                warn("الاسم واسم المستخدم حقول مطلوبة!"); return;
-            }
-            dao.addEmployee(buildEmp());
+     try {
+       //     if (nameF.getText().trim().isEmpty() || emailF.getText().trim().isEmpty()) {
+         //       warn("الاسم واسم المستخدم حقول مطلوبة!"); return;
+           // }
+            
+            // تم التغيير لـ employeeService
+            employeeService.validateAndAddEmployee(buildEmp());
+            
             ok("✔  تمت إضافة الموظف بنجاح!");
             loadTable(); clearForm();
         } catch (NumberFormatException ex) { warn("يرجى إدخال قيمة راتب صحيحة."); }
-          catch (EmployeeException ex)     { err(ex.getMessage()); }
+          catch (Exception ex)             { err(ex.getMessage()); }
     }
 
     private void updateEmp() {
@@ -199,7 +213,8 @@ public class EmployeeManagementForm extends JFrame {
         try {
             Employee e = buildEmp();
             e.setId((int) tableModel.getValueAt(table.getSelectedRow(), 0));
-            dao.updateEmployee(e);
+            // تم التغيير لـ employeeService
+            employeeService.updateEmployee(e);
             ok("✔  تم تعديل بيانات الموظف!");
             loadTable();
         } catch (NumberFormatException ex) { warn("يرجى إدخال قيمة راتب صحيحة."); }
@@ -214,7 +229,8 @@ public class EmployeeManagementForm extends JFrame {
             JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (ok == JOptionPane.YES_OPTION) {
             try {
-                dao.deleteEmployee((int) tableModel.getValueAt(table.getSelectedRow(), 0));
+                // تم التغيير لـ employeeService
+                employeeService.deleteEmployee((int) tableModel.getValueAt(table.getSelectedRow(), 0));
                 ok("✔  تم حذف الموظف.");
                 loadTable(); clearForm();
             } catch (EmployeeException ex) { err(ex.getMessage()); }
@@ -225,7 +241,8 @@ public class EmployeeManagementForm extends JFrame {
         int row = table.getSelectedRow();
         if (row == -1) return;
         try {
-            Employee e = dao.getEmployeeById((int) tableModel.getValueAt(row, 0));
+            // تم التغيير لـ employeeService
+            Employee e = employeeService.getEmployeeById((int) tableModel.getValueAt(row, 0));
             if (e == null) return;
             idLbl.setText(String.valueOf(e.getId()));
             nameF.setText(e.getName()); emailF.setText(e.getEmail()); phoneF.setText(e.getPhone());
@@ -247,7 +264,8 @@ public class EmployeeManagementForm extends JFrame {
     private void loadTable() {
         try {
             tableModel.setRowCount(0);
-            for (Employee e : dao.getAllEmployees())
+            // تم التغيير لـ employeeService
+            for (Employee e : employeeService.getAllEmployees())
                 tableModel.addRow(new Object[]{
                     e.getId(), e.getName(), e.getEmail(), e.getPosition(),
                     e.getDepartmentName(), String.format("%.2f د.ل", e.getSalary()),
@@ -259,7 +277,8 @@ public class EmployeeManagementForm extends JFrame {
     private void search(String kw) {
         try {
             tableModel.setRowCount(0);
-            for (Employee e : dao.getAllEmployees())
+            // تم التغيير لـ employeeService
+            for (Employee e : employeeService.getAllEmployees())
                 if (e.getName().contains(kw) || e.getPosition().contains(kw)
                         || e.getDepartmentName().contains(kw))
                     tableModel.addRow(new Object[]{
@@ -294,16 +313,18 @@ public class EmployeeManagementForm extends JFrame {
         return d.toArray(new String[0]);
     }
 
-    // مساعد إضافة صف
     private int fRow(JPanel p, GridBagConstraints g, int row, String lbl, Component field, boolean font) {
-        g.gridwidth = 1; g.gridx = 0; g.gridy = row; g.weightx = 0.38;
-        p.add(AppColors.label(lbl), g);
-        g.gridx = 1; g.weightx = 0.62;
+        g.gridwidth = 1;
+        g.gridy = row;
+        g.gridx = 0;
+        g.weightx = 0.62;
         if (font) field.setFont(new Font("Arial", Font.PLAIN, 13));
         p.add(field, g);
+        g.gridx = 1;
+        g.weightx = 0.38;
+        p.add(AppColors.label(lbl), g);
         return row + 1;
     }
-
     private void ok  (String m) { JOptionPane.showMessageDialog(this, m, "نجاح",  JOptionPane.INFORMATION_MESSAGE); }
     private void warn(String m) { JOptionPane.showMessageDialog(this, m, "تنبيه", JOptionPane.WARNING_MESSAGE); }
     private void err (String m) { JOptionPane.showMessageDialog(this, m, "خطأ",   JOptionPane.ERROR_MESSAGE); }

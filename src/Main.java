@@ -1,7 +1,8 @@
-import database.DatabaseConnection;
 import gui.LoginForm;
 
 import javax.swing.*;
+
+import dataaccess.DatabaseConnection;
 
 /**
  * نقطة الدخول الرئيسية لنظام إدارة الموظفين.

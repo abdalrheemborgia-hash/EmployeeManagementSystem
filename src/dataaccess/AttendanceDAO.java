@@ -1,4 +1,4 @@
-package database;
+package dataaccess;
 
 import model.Attendance;
 import exception.EmployeeException;

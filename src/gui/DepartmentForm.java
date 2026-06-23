@@ -1,9 +1,10 @@
 package gui;
 
-import database.DatabaseConnection;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import dataaccess.DatabaseConnection;
+
 import java.awt.*;
 import java.sql.*;
 
@@ -35,10 +36,11 @@ public class DepartmentForm extends JFrame {
         header.setBackground(AppColors.PURPLE);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        split.setDividerLocation(320);
+        split.setDividerLocation(500);
         split.setBorder(null);
-        split.setLeftComponent(buildForm());
-        split.setRightComponent(buildTable());
+
+        split.setLeftComponent(buildTable());   // الجدول يسار
+        split.setRightComponent(buildForm());   // الإدخال يمين
 
         add(header, BorderLayout.NORTH);
         add(split,  BorderLayout.CENTER);
@@ -76,10 +78,10 @@ public class DepartmentForm extends JFrame {
         managerF= AppColors.textField();
 
         int row = 1;
-        row = fRow(card, g, row, "المعرّف:",           idLbl,    false);
-        row = fRow(card, g, row, "اسم القسم: *",       nameF,    true);
-        row = fRow(card, g, row, "الوصف:",              descF,    true);
         row = fRow(card, g, row, "المشرف المسؤول:",     managerF, true);
+        row = fRow(card, g, row, "الوصف:",              descF,    true);
+        row = fRow(card, g, row, "اسم القسم: *",       nameF,    true);
+        row = fRow(card, g, row, "المعرّف:",           idLbl,    false);
 
         // فاصل
         g.gridx=0; g.gridy=row; g.gridwidth=2;
@@ -198,12 +200,23 @@ public class DepartmentForm extends JFrame {
         table.clearSelection();
     }
 
-    private int fRow(JPanel p, GridBagConstraints g, int row, String lbl, Component f, boolean font) {
-        g.gridwidth=1; g.gridx=0; g.gridy=row; g.weightx=0.38;
+    private int fRow(JPanel p, GridBagConstraints g, int row, String lbl, Component field, boolean font) {
+
+        g.gridwidth = 1;
+        g.gridy = row;
+
+        // الحقل أولاً (يسار)
+        g.gridx = 0;
+        g.weightx = 0.62;
+        if (font) field.setFont(new Font("Arial", Font.PLAIN, 13));
+        p.add(field, g);
+
+        // التسمية ثانياً (يمين)
+        g.gridx = 1;
+        g.weightx = 0.38;
         p.add(AppColors.label(lbl), g);
-        g.gridx=1; g.weightx=0.62;
-        if (font) f.setFont(new Font("Arial", Font.PLAIN, 13));
-        p.add(f, g); return row + 1;
+
+        return row + 1;
     }
 
     private void ok  (String m) { JOptionPane.showMessageDialog(this, m, "نجاح",  JOptionPane.INFORMATION_MESSAGE); }

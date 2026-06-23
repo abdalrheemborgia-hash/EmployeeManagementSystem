@@ -1,4 +1,4 @@
-package database;
+package dataaccess;
 
 import model.LeaveRequest;
 import exception.EmployeeException;

@@ -1,9 +1,10 @@
 package gui;
 
-import database.DatabaseConnection;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+
+import dataaccess.DatabaseConnection;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.*;
@@ -69,7 +70,7 @@ public class LoginForm extends JFrame {
 
         // أيقونة كبيرة
         g.gridy = 0; g.insets = new Insets(40, 30, 10, 30);
-        JLabel iconLbl = new JLabel("👔", SwingConstants.CENTER);
+        JLabel iconLbl = new JLabel("", SwingConstants.CENTER);
         iconLbl.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 72));
         panel.add(iconLbl, g);
 
@@ -121,10 +122,7 @@ public class LoginForm extends JFrame {
 
         // نص التذييل
         g.gridy = 5; g.insets = new Insets(30, 30, 30, 30);
-      //  JLabel footer = new JLabel("© 2024 — مشروع OOP الجامعي", SwingConstants.CENTER);
-       // footer.setFont(new Font("Arial", Font.ITALIC, 12));
-       // footer.setForeground(new Color(140, 180, 230));
-       // panel.add(footer, g);
+     
 
         return panel;
     }
@@ -247,87 +245,7 @@ public class LoginForm extends JFrame {
         panel.add(loginBtn, g);
 		return panel;}
 
-        // ---- فاصل ----
-     /*   g.gridy = 8; g.insets = new Insets(0, 50, 18, 50);
-        JSeparator sep = new JSeparator();
-        sep.setForeground(AppColors.BORDER_COLOR);
-        panel.add(sep, g);
-/*/
-        // ---- بطاقة بيانات الدخول التجريبية ----
-/*     g.gridy = 9; g.insets = new Insets(0, 50, 14, 50);
-        JLabel hintTitle = new JLabel("بيانات الدخول التجريبية:", SwingConstants.RIGHT);
-        hintTitle.setFont(new Font("Arial", Font.BOLD, 13));
-        hintTitle.setForeground(AppColors.TEXT_DARK);
-        panel.add(hintTitle, g);
 
-        g.gridy = 10; g.insets = new Insets(0, 50, 40, 50);
-        JPanel hintCard = buildHintCard();
-        panel.add(hintCard, g);
-
-        return panel;
-    }
-*/
-    // ---- بطاقة التلميح ----
-/*    private JPanel buildHintCard() {
-        JPanel card = new JPanel(new GridLayout(3, 1, 0, 0));
-        card.setBackground(new Color(232, 242, 255));
-        card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(180, 210, 245), 1),
-            BorderFactory.createEmptyBorder(12, 16, 12, 16)
-        ));
-
-        String[][] users = {
-            {"👑  مدير النظام:", "admin@company.com", "admin123"},
-            {"🔧  مشرف:",        "manager@company.com", "manager123"},
-            {"👤  موظف:",         "john@company.com",  "emp123"},
-        };
-
-        Color[] roleColors = {
-            new Color(130, 0, 0),
-            new Color(0, 80, 160),
-            new Color(0, 100, 0),
-        };
-
-        for (int i = 0; i < users.length; i++) {
-            JPanel row = new JPanel(new BorderLayout(8, 0));
-            row.setOpaque(false);
-            row.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-
-            JLabel roleLbl = new JLabel(users[i][0], SwingConstants.RIGHT);
-            roleLbl.setFont(new Font("Arial", Font.BOLD, 13));
-            roleLbl.setForeground(roleColors[i]);
-            roleLbl.setPreferredSize(new Dimension(130, 20));
-
-            JLabel credLbl = new JLabel(users[i][1] + "  /  " + users[i][2]);
-            credLbl.setFont(new Font("Courier New", Font.PLAIN, 12));
-            credLbl.setForeground(new Color(50, 70, 110));
-
-            // زر نسخ تلقائي للبريد
-            final String email = users[i][1];
-            final String pass  = users[i][2];
-            JButton useBtn = new JButton("استخدم");
-            useBtn.setFont(new Font("Arial", Font.BOLD, 11));
-            useBtn.setBackground(AppColors.PRIMARY);
-            useBtn.setForeground(Color.WHITE);
-            useBtn.setFocusPainted(false);
-            useBtn.setBorderPainted(false);
-            useBtn.setOpaque(true);
-            useBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            useBtn.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
-            useBtn.addActionListener(e -> {
-                emailField.setText(email);
-                passField.setText(pass);
-                statusLabel.setText(" ");
-            });
-
-            row.add(roleLbl, BorderLayout.EAST);
-            row.add(credLbl, BorderLayout.CENTER);
-            row.add(useBtn,  BorderLayout.WEST);
-            card.add(row);
-        }
-        return card;
-    }
-*/
     // ================================================================
     //  منطق تسجيل الدخول
     // ================================================================

@@ -1,9 +1,10 @@
 package gui;
 
-import database.DatabaseConnection;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import dataaccess.DatabaseConnection;
+
 import java.awt.*;
 import java.sql.*;
 
@@ -45,11 +46,14 @@ public class UserManagementForm extends JFrame {
 
         // ---- محتوى رئيسي ----
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        split.setDividerLocation(360);
+        split.setDividerLocation(690);
         split.setBorder(null);
         split.setBackground(AppColors.BG_MAIN);
-        split.setLeftComponent(buildFormPanel());
-        split.setRightComponent(buildTablePanel());
+        split.setLeftComponent(buildTablePanel());   // الجدول يسار
+        split.setRightComponent(buildFormPanel());   // الإدخال يمين
+
+        //split.setLeftComponent(buildFormPanel());
+        //split.setRightComponent(buildTablePanel());
 
         add(header, BorderLayout.NORTH);
         add(split,  BorderLayout.CENTER);
@@ -367,15 +371,26 @@ public class UserManagementForm extends JFrame {
 
     /** يضيف صفاً من تسمية + حقل إلى اللوحة */
     private int addRow(JPanel p, GridBagConstraints g, int row,
-                       String labelText, Component field, boolean isComp) {
-        g.gridwidth = 1;
-        g.gridx = 0; g.gridy = row; g.weightx = 0.35;
-        p.add(AppColors.label(labelText), g);
-        g.gridx = 1; g.weightx = 0.65;
-        if (isComp) field.setFont(new Font("Arial", Font.PLAIN, 13));
-        p.add(field, g);
-        return row + 1;
-    }
+            String labelText, Component field, boolean isComp) {
+
+g.gridwidth = 1;
+g.gridy = row;
+
+// الحقل أولاً
+g.gridx = 0;
+g.weightx = 0.65;
+if (isComp) {
+ field.setFont(new Font("Arial", Font.PLAIN, 13));
+}
+p.add(field, g);
+
+// التسمية ثانياً
+g.gridx = 1;
+g.weightx = 0.35;
+p.add(AppColors.label(labelText), g);
+
+return row + 1;
+}						
 
     /** نقطة لوسيلة الإيضاح */
     private JPanel colorDot(Color c, String text) {

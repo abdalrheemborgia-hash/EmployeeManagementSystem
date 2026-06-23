@@ -1,12 +1,14 @@
 package gui;
 
-import database.AttendanceDAO;
-import database.DatabaseConnection;
 import model.Attendance;
 import exception.EmployeeException;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import dataaccess.AttendanceDAO;
+import dataaccess.DatabaseConnection;
+
 import java.awt.*;
 import java.sql.*;
 import java.time.LocalDate;

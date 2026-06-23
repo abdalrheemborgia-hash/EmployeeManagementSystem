@@ -1,24 +1,28 @@
 package gui;
 
-import database.*;
 import model.*;
 import exception.EmployeeException;
-
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import dataaccess.*;
 import java.awt.*;
 import java.sql.*;
+import java.text.MessageFormat; // تم إضافة الاستيراد المفقود هنا لحل مشكلة الانهيار
 import java.util.List;
 
 /**
- * واجهة التقارير — تُولّد تقارير شاملة للنظام.
+ * واجهة التقارير المطورة — تُولّد تقارير شاملة داخل جداول رسومية مع ميزة الطباعة المتناسقة.
  *
  * @author فريق المشروع
  */
 public class ReportsPanel extends JFrame {
 
-    private JTextArea  reportArea;
-    private JLabel     reportTitleLbl;
-    private final String currentUser;
+    private JTable         reportTable;
+    private DefaultTableModel tableModel;
+    private JLabel         reportTitleLbl;
+    private JLabel         summaryLbl; 
+    private final String   currentUser;
+    private String         currentReportType = ""; 
 
     public ReportsPanel(String user) {
         this.currentUser = user;
@@ -26,18 +30,18 @@ public class ReportsPanel extends JFrame {
     }
 
     private void buildUI() {
-        setTitle("التقارير");
-        setSize(800, 620);
+        setTitle("نظام التقارير المتقدم");
+        setSize(950, 650); 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(AppColors.BG_MAIN);
 
-        JPanel header = AppColors.headerBar("📊  التقارير", "مدير النظام: " + currentUser);
+        JPanel header = AppColors.headerBar("📊  إدارة التقارير المتقدمة", "مدير النظام: " + currentUser);
         header.setBackground(AppColors.DANGER);
 
-        // ---- شريط أزرار التقارير ----
+        // ---- شريط أزرار التقارير العلوي ----
         JPanel btnBar = new JPanel(new GridLayout(1, 5, 10, 0));
-        btnBar.setBackground(new Color(220, 235, 255));
+        btnBar.setBackground(new Color(235, 245, 255));
         btnBar.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
 
         JButton empBtn  = AppColors.btnPrimary("👥  تقرير الموظفين");
@@ -46,193 +50,212 @@ public class ReportsPanel extends JFrame {
         JButton dptBtn  = AppColors.btnPurple ("🏢  تقرير الأقسام");
         JButton clrBtn  = AppColors.btnDark   ("↺  مسح");
 
-        empBtn.addActionListener(e -> { setTitle("تقرير الموظفين");  empReport(); });
-        attBtn.addActionListener(e -> { setTitle("تقرير الحضور");    attReport(); });
-        levBtn.addActionListener(e -> { setTitle("تقرير الإجازات"); leaveReport(); });
-        dptBtn.addActionListener(e -> { setTitle("تقرير الأقسام");  deptReport(); });
-        clrBtn.addActionListener(e -> { reportArea.setText(""); reportTitleLbl.setText("اختر تقريراً من الأزرار أعلاه"); });
+        empBtn.addActionListener(e -> empReport());
+        attBtn.addActionListener(e -> attReport());
+        levBtn.addActionListener(e -> leaveReport());
+        dptBtn.addActionListener(e -> deptReport());
+        clrBtn.addActionListener(e -> clearReport());
 
         btnBar.add(empBtn); btnBar.add(attBtn); btnBar.add(levBtn);
         btnBar.add(dptBtn); btnBar.add(clrBtn);
 
-        // ---- عنوان التقرير ----
-        reportTitleLbl = new JLabel("اختر تقريراً من الأزرار أعلاه", SwingConstants.CENTER);
-        reportTitleLbl.setFont(new Font("Arial", Font.BOLD, 14));
-        reportTitleLbl.setForeground(AppColors.TEXT_MUTED);
-        reportTitleLbl.setBorder(BorderFactory.createEmptyBorder(8, 0, 4, 0));
-        reportTitleLbl.setBackground(AppColors.BG_MAIN);
-        reportTitleLbl.setOpaque(true);
+        // ---- عنوان التقرير الحالي ----
+        reportTitleLbl = new JLabel("اختر تقريراً من الأزرار أعلاه لعرض البيانات", SwingConstants.CENTER);
+        reportTitleLbl.setFont(new Font("Arial", Font.BOLD, 15));
+        reportTitleLbl.setForeground(AppColors.TEXT_DARK);
+        reportTitleLbl.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
-        // ---- منطقة التقرير ----
-        reportArea = new JTextArea();
-        reportArea.setFont(new Font("Courier New", Font.PLAIN, 13));
-        reportArea.setEditable(false);
-        reportArea.setBackground(new Color(252, 253, 255));
-        reportArea.setForeground(AppColors.TEXT_DARK);
-        reportArea.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
-        reportArea.setLineWrap(false);
+        // ---- إعداد الجدول الرسومي (JTable) ----
+        tableModel = new DefaultTableModel() {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; } 
+        };
+        reportTable = new JTable(tableModel);
+        reportTable.setRowHeight(28);
+        reportTable.setFont(new Font("Arial", Font.PLAIN, 13));
+        reportTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 13));
+        reportTable.getTableHeader().setBackground(new Color(230, 235, 240));
+        reportTable.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT); 
 
-        JScrollPane scroll = new JScrollPane(reportArea);
-        scroll.setBorder(BorderFactory.createLineBorder(AppColors.DANGER, 2));
+        JScrollPane scroll = new JScrollPane(reportTable);
+        scroll.setBorder(BorderFactory.createLineBorder(AppColors.DANGER, 2)); // متناسق مع لون الهيدر الأحمر
 
-        // ---- تجميع ----
-        JPanel center = new JPanel(new BorderLayout(0, 4));
-        center.setBackground(AppColors.BG_MAIN);
-        center.setBorder(BorderFactory.createEmptyBorder(8, 12, 12, 12));
-        center.add(reportTitleLbl, BorderLayout.NORTH);
-        center.add(scroll,        BorderLayout.CENTER);
+        // ---- شريط الملخص والطباعة السفلي وتنسيق الزر ----
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.setBackground(AppColors.BG_MAIN);
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
 
-        add(header, BorderLayout.NORTH);
-        add(btnBar, BorderLayout.CENTER);
-        add(center, BorderLayout.SOUTH);
+        summaryLbl = new JLabel("جاهز لتوليد التقارير...");
+        summaryLbl.setFont(new Font("Arial", Font.BOLD, 13));
+        summaryLbl.setForeground(AppColors.TEXT_MUTED);
+        summaryLbl.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
 
-        // اجعل منطقة التقرير تأخذ المساحة الأكبر
-        setLayout(new BorderLayout());
-        add(header, BorderLayout.NORTH);
+        // تعديل الزر ليتوافق تماماً مع الهوية البصرية الحالية لمشروعك وثيم الألوان (استخدام نفس ستايل btnPrimary/btnDark المدمج لديك)
+        JButton printBtn = AppColors.btnPrimary("📄 طباعة التقرير الحالي");
+        
+        printBtn.addActionListener(e -> printCurrentReport());
 
-        JPanel mainContent = new JPanel(new BorderLayout(0, 0));
+        bottomPanel.add(summaryLbl, BorderLayout.LINE_START);
+        bottomPanel.add(printBtn, BorderLayout.LINE_END);
+
+        // ---- تجميع المكونات ----
+        JPanel mainContent = new JPanel(new BorderLayout());
         mainContent.setBackground(AppColors.BG_MAIN);
         mainContent.add(btnBar, BorderLayout.NORTH);
-        mainContent.add(center, BorderLayout.CENTER);
+        
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.setBackground(AppColors.BG_MAIN);
+        centerPanel.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 14));
+        centerPanel.add(reportTitleLbl, BorderLayout.NORTH);
+        centerPanel.add(scroll, BorderLayout.CENTER);
+        
+        mainContent.add(centerPanel, BorderLayout.CENTER);
+        mainContent.add(bottomPanel, BorderLayout.SOUTH);
+
+        setLayout(new BorderLayout());
+        add(header, BorderLayout.NORTH);
         add(mainContent, BorderLayout.CENTER);
 
         setVisible(true);
     }
 
     // ================================================================
-    //  التقارير
+    //  توليد التقارير داخل الـ JTable
     // ================================================================
 
-    /** تقرير الموظفين — يستخدم generateReport() من واجهة Reportable */
     private void empReport() {
         try {
+            currentReportType = "تقرير الموظفين الشامل";
             List<Employee> list = new EmployeeDAO().getAllEmployees();
-            StringBuilder sb = new StringBuilder();
-            line(sb, "═", 50);
-            center(sb, "تقرير الموظفين الكامل", 50);
-            line(sb, "═", 50);
-            sb.append("صادر بواسطة: ").append(currentUser).append("\n");
-            sb.append("عدد الموظفين: ").append(list.size()).append("\n");
-            line(sb, "─", 50);
+            
+            String[] columns = {"المعرف", "الاسم", "البريد الإلكتروني", "الهاتف", "المنصب", "القسم", "الراتب", "الحالة"};
+            tableModel.setColumnIdentifiers(columns);
+            tableModel.setRowCount(0); 
 
-            double total = 0;
+            double totalSalary = 0;
             for (Employee e : list) {
-                // استدعاء generateReport() — تعدد الأشكال (Polymorphism)
-                sb.append(e.generateReport()).append("\n");
-                line(sb, "─", 50);
-                total += e.getSalary();
+                tableModel.addRow(new Object[]{
+                    e.getId(), e.getName(), e.getEmail(), e.getPhone(),
+                    e.getPosition(), e.getDepartmentName(), e.getSalary() + " د.ل", e.getStatus()
+                });
+                totalSalary += e.getSalary();
             }
-            sb.append("\n💰 إجمالي الرواتب الشهرية: ")
-              .append(String.format("%.2f", total)).append(" د.ل\n");
 
-            reportTitleLbl.setText("📊 تقرير الموظفين — " + list.size() + " موظف");
-            reportArea.setText(sb.toString());
-            reportArea.setCaretPosition(0);
+            reportTitleLbl.setText("📊 تقرير الموظفين الكامل — صادر بواسطة: " + currentUser);
+            summaryLbl.setText("عدد الموظفين: " + list.size() + "  |  إجمالي الرواتب الشهرية: " + String.format("%.2f", totalSalary) + " د.ل");
         } catch (EmployeeException ex) { err(ex.getMessage()); }
     }
 
     private void attReport() {
         try {
+            currentReportType = "تقرير الحضور والغياب العام";
             List<Attendance> list = new AttendanceDAO().getAllAttendance();
-            int p=0, a=0, l=0;
-            StringBuilder sb = new StringBuilder();
-            line(sb, "═", 55);
-            center(sb, "تقرير الحضور والغياب", 55);
-            line(sb, "═", 55);
-            sb.append("صادر بواسطة: ").append(currentUser).append("\n");
-            sb.append("إجمالي السجلات: ").append(list.size()).append("\n");
-            line(sb, "─", 55);
-            sb.append(String.format("%-5s %-18s %-12s %-10s %-8s %-8s\n",
-                    "رقم","الموظف","التاريخ","الحالة","دخول","خروج"));
-            line(sb, "─", 55);
+            
+            String[] columns = {"رقم السجل", "اسم الموظف", "التاريخ", "الحالة", "وقت الدخول", "وقت الخروج"};
+            tableModel.setColumnIdentifiers(columns);
+            tableModel.setRowCount(0);
+
+            int p = 0, a = 0, l = 0;
             for (Attendance at : list) {
-                sb.append(String.format("%-5d %-18s %-12s %-10s %-8s %-8s\n",
-                    at.getId(), at.getEmployeeName(), at.getDate(), at.getStatus(),
-                    at.getCheckIn(), at.getCheckOut()));
+                tableModel.addRow(new Object[]{
+                    at.getId(), at.getEmployeeName(), at.getDate(), at.getStatus(), at.getCheckIn(), at.getCheckOut()
+                });
                 if ("حاضر".equals(at.getStatus())) p++;
                 else if ("غائب".equals(at.getStatus())) a++;
                 else l++;
             }
-            line(sb, "─", 55);
-            sb.append("✅ حاضر:  ").append(p).append("  |  ");
-            sb.append("❌ غائب:  ").append(a).append("  |  ");
-            sb.append("⚠ متأخر: ").append(l).append("\n");
 
-            reportTitleLbl.setText("📊 تقرير الحضور — " + list.size() + " سجل");
-            reportArea.setText(sb.toString());
-            reportArea.setCaretPosition(0);
+            reportTitleLbl.setText("📊 تقرير سجلات الحضور والغياب — صادر بواسطة: " + currentUser);
+            summaryLbl.setText("إجمالي السجلات: " + list.size() + " [ حاضر: " + p + " | غائب: " + a + " | متأخر: " + l + " ]");
         } catch (EmployeeException ex) { err(ex.getMessage()); }
     }
 
     private void leaveReport() {
         try {
+            currentReportType = "تقرير طلبات الإجازات";
             List<LeaveRequest> list = new LeaveRequestDAO().getAllLeaveRequests();
-            int pend=0, app=0, rej=0;
-            StringBuilder sb = new StringBuilder();
-            line(sb, "═", 60);
-            center(sb, "تقرير طلبات الإجازة", 60);
-            line(sb, "═", 60);
-            sb.append("صادر بواسطة: ").append(currentUser).append("\n");
-            sb.append("إجمالي الطلبات: ").append(list.size()).append("\n");
-            line(sb, "─", 60);
+            
+            String[] columns = {"رقم الطلب", "الموظف", "نوع الإجازة", "تاريخ البدء", "تاريخ الانتهاء", "السبب", "الحالة"};
+            tableModel.setColumnIdentifiers(columns);
+            tableModel.setRowCount(0);
+
+            int pend = 0, app = 0, rej = 0;
             for (LeaveRequest r : list) {
-                sb.append("# ").append(r.getId()).append("  ").append(r.getEmployeeName())
-                  .append("  |  ").append(r.getLeaveType())
-                  .append("  |  ").append(r.getStartDate()).append(" ~ ").append(r.getEndDate())
-                  .append("  |  ").append(r.getStatus()).append("\n");
-                sb.append("   السبب: ").append(r.getReason()).append("\n");
-                line(sb, "·", 60);
+                tableModel.addRow(new Object[]{
+                    r.getId(), r.getEmployeeName(), r.getLeaveType(), r.getStartDate(), r.getEndDate(), r.getReason(), r.getStatus()
+                });
                 if ("معلّق".equals(r.getStatus())) pend++;
                 else if ("مقبول".equals(r.getStatus())) app++;
                 else rej++;
             }
-            line(sb, "─", 60);
-            sb.append("✅ مقبول: ").append(app).append("  |  ");
-            sb.append("❌ مرفوض: ").append(rej).append("  |  ");
-            sb.append("⏳ معلّق: ").append(pend).append("\n");
 
-            reportTitleLbl.setText("📊 تقرير الإجازات — " + list.size() + " طلب");
-            reportArea.setText(sb.toString());
-            reportArea.setCaretPosition(0);
+            reportTitleLbl.setText("📊 تقرير متابعة طلبات الإجازات — صادر بواسطة: " + currentUser);
+            summaryLbl.setText("إجمالي الطلبات: " + list.size() + " [ مقبول: " + app + " | مرفوض: " + rej + " | معلق: " + pend + " ]");
         } catch (EmployeeException ex) { err(ex.getMessage()); }
     }
 
     private void deptReport() {
         try {
-            Statement s = DatabaseConnection.getConnection().createStatement();
+            currentReportType = "تقرير الهيكل التنظيمي للأقسام";
+            Connection conn = DatabaseConnection.getConnection();
+            Statement s = conn.createStatement();
             ResultSet r = s.executeQuery("SELECT * FROM departments ORDER BY name");
-            StringBuilder sb = new StringBuilder();
-            line(sb, "═", 50);
-            center(sb, "تقرير الأقسام", 50);
-            line(sb, "═", 50);
-            sb.append("صادر بواسطة: ").append(currentUser).append("\n");
-            line(sb, "─", 50);
+            
+            String[] columns = {"اسم القسم", "اسم المشرف / المدير", "الوصف والتفاصيل"};
+            tableModel.setColumnIdentifiers(columns);
+            tableModel.setRowCount(0);
+
             int count = 0;
             while (r.next()) {
                 count++;
-                sb.append("🏢 ").append(r.getString("name")).append("\n");
-                sb.append("   المشرف: ").append(r.getString("manager_name")).append("\n");
-                sb.append("   الوصف:  ").append(r.getString("description")).append("\n");
-                line(sb, "─", 50);
+                tableModel.addRow(new Object[]{
+                    r.getString("name"), r.getString("manager_name"), r.getString("description")
+                });
             }
-            sb.append("إجمالي الأقسام: ").append(count).append("\n");
             r.close(); s.close();
 
-            reportTitleLbl.setText("📊 تقرير الأقسام — " + count + " أقسام");
-            reportArea.setText(sb.toString());
-            reportArea.setCaretPosition(0);
-        } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+            reportTitleLbl.setText("📊 تقرير الأقسام الإدارية — صادر بواسطة: " + currentUser);
+            summaryLbl.setText("إجمالي الأقسام المسجلة في النظام: " + count);
+        } catch (SQLException ex) { err("خطأ أثناء جلب الأقسام: " + ex.getMessage()); }
     }
 
-    // ---- مساعدات التنسيق ----
-    private void line(StringBuilder sb, String ch, int len) {
-        sb.append(ch.repeat(len)).append("\n");
+    private void clearReport() {
+        tableModel.setRowCount(0);
+        tableModel.setColumnIdentifiers(new String[]{});
+        currentReportType = "";
+        reportTitleLbl.setText("اختر تقريراً من الأزرار أعلاه لعرض البيانات");
+        summaryLbl.setText("جاهز لتوليد التقارير...");
     }
 
-    private void center(StringBuilder sb, String text, int width) {
-        int pad = Math.max(0, (width - text.length()) / 2);
-        sb.append(" ".repeat(pad)).append(text).append("\n");
+    // ================================================================
+    //  ميزة الطباعة الرسمية
+    // ================================================================
+    private void printCurrentReport() {
+        if (tableModel.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "تنبيه: لا توجد بيانات في الجدول لطباعتها! يرجى اختيار تقرير أولاً.", "جدول فارغ", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            String subTitle = "";
+            if (reportTitleLbl.getText().contains("—")) {
+                subTitle = " (" + reportTitleLbl.getText().split("—")[1].trim() + ")";
+            }
+            
+            MessageFormat headerFormat = new MessageFormat(currentReportType + subTitle);
+            MessageFormat footerFormat = new MessageFormat("صفحة {0}             نظام إدارة الموظفين المطور 2026");
+
+            boolean complete = reportTable.print(JTable.PrintMode.FIT_WIDTH, headerFormat, footerFormat);
+            
+            if (complete) {
+                JOptionPane.showMessageDialog(this, "✔ تم إرسال التقرير إلى الطابعة / أو حفظه كـ PDF بنجاح.", "نجاح العملية", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "حدث خطأ أثناء محاولة الطباعة: " + e.getMessage(), "خطأ في الطباعة", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
-    private void err(String m) { JOptionPane.showMessageDialog(this, m, "خطأ", JOptionPane.ERROR_MESSAGE); }
+    private void err(String m) { 
+        JOptionPane.showMessageDialog(this, m, "خطأ في النظام", JOptionPane.ERROR_MESSAGE); 
+    }
 }
