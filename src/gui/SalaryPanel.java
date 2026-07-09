@@ -6,12 +6,10 @@ import exception.EmployeeException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-import dataaccess.DatabaseConnection;
-import dataaccess.EmployeeDAO;
+import service.EmployeeService;
+import service.UserService;
 
 import java.awt.*;
-import java.sql.*;
-import java.util.List;
 
 /**
  * واجهة الرواتب وحاسبة الراتب الصافي.
@@ -22,7 +20,10 @@ public class SalaryPanel extends JFrame {
 
     private JTable            table;
     private DefaultTableModel tableModel;
-    private final EmployeeDAO dao;
+
+    // ✅ طبقة الخدمة (بدل DAO والاتصال المباشر بقاعدة البيانات)
+    private final EmployeeService employeeService = new EmployeeService();
+    private final UserService     userService     = new UserService();
 
     private JTextField baseSalaryF, taxF, bonusF, deductF;
     private JLabel     netLabel;
@@ -33,7 +34,6 @@ public class SalaryPanel extends JFrame {
     public SalaryPanel(String user, String role, int uid) {
         this.currentRole   = role;
         this.currentUserId = uid;
-        this.dao           = new EmployeeDAO();
         buildUI();
         loadData();
     }
@@ -166,7 +166,7 @@ public class SalaryPanel extends JFrame {
         try {
             tableModel.setRowCount(0);
             String myEmail = currentRole.equals("Employee") ? getEmail(currentUserId) : "";
-            for (Employee e : dao.getAllEmployees()) {
+            for (Employee e : employeeService.getAllEmployees()) {
                 if (currentRole.equals("Employee") && !e.getEmail().equals(myEmail)) continue;
                 tableModel.addRow(new Object[]{
                     e.getId(), e.getName(), e.getPosition(), e.getDepartmentName(),
@@ -176,14 +176,13 @@ public class SalaryPanel extends JFrame {
         } catch (EmployeeException ex) { err(ex.getMessage()); }
     }
 
+    /** جلب بريد المستخدم عبر طبقة الخدمة (لا SQL في الواجهة). */
     private String getEmail(int uid) {
         try {
-            PreparedStatement ps = DatabaseConnection.getConnection()
-                    .prepareStatement("SELECT email FROM users WHERE id=?");
-            ps.setInt(1, uid); ResultSet r = ps.executeQuery();
-            if (r.next()) { String e = r.getString("email"); r.close(); ps.close(); return e; }
-        } catch (SQLException ex) { /* تجاهل */ }
-        return "";
+            return userService.getEmailById(uid);
+        } catch (EmployeeException ex) {
+            return "";
+        }
     }
 
     private void warn(String m) { JOptionPane.showMessageDialog(this, m, "تنبيه", JOptionPane.WARNING_MESSAGE); }

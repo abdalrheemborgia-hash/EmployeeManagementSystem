@@ -3,11 +3,12 @@ package gui;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
-import dataaccess.DatabaseConnection;
+import service.UserService;
+import model.Person;
+import exception.EmployeeException;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.sql.*;
 
 /**
  * شاشة تسجيل الدخول الرئيسية — واجهة كاملة واحترافية.
@@ -20,6 +21,9 @@ public class LoginForm extends JFrame {
     private JPasswordField passField;
     private JLabel         statusLabel;
     private JButton        loginBtn;
+
+    // ✅ طبقة الخدمة (بدل الاتصال المباشر بقاعدة البيانات)
+    private final UserService userService = new UserService();
 
     public LoginForm() {
         buildUI();
@@ -122,7 +126,6 @@ public class LoginForm extends JFrame {
 
         // نص التذييل
         g.gridy = 5; g.insets = new Insets(30, 30, 30, 30);
-     
 
         return panel;
     }
@@ -243,11 +246,11 @@ public class LoginForm extends JFrame {
         loginBtn.addActionListener(e -> doLogin());
         passField.addActionListener(e -> doLogin());
         panel.add(loginBtn, g);
-		return panel;}
-
+        return panel;
+    }
 
     // ================================================================
-    //  منطق تسجيل الدخول
+    //  منطق تسجيل الدخول (رباعي الطبقات: GUI → Service → DAO → DB)
     // ================================================================
     private void doLogin() {
         String email = emailField.getText().trim();
@@ -263,26 +266,20 @@ public class LoginForm extends JFrame {
         }
 
         try {
-            PreparedStatement ps = DatabaseConnection.getConnection()
-                    .prepareStatement("SELECT * FROM users WHERE email=? AND password=?");
-            ps.setString(1, email);
-            ps.setString(2, pass);
-            ResultSet rs = ps.executeQuery();
+            // ✅ الواجهة تنادي طبقة الخدمة فقط (لا SQL ولا DatabaseConnection)
+            Person user = userService.login(email, pass);
 
-            if (rs.next()) {
-                String role = rs.getString("role");
-                String name = rs.getString("name");
-                int    uid  = rs.getInt("id");
-                rs.close(); ps.close();
-                new MainDashboard(name, role, uid);
+            if (user != null) {
+                // getRoleKey يحوّل نوع الكائن إلى الدور المستخدم في بقية النظام
+                String roleKey = getRoleKey(user);
+                new MainDashboard(user.getName(), roleKey, user.getId());
                 dispose();
             } else {
                 showError("✗  اسم المستخدم أو كلمة مرور غير صحيحة");
                 passField.setText("");
-                rs.close(); ps.close();
             }
 
-        } catch (SQLException ex) {
+        } catch (EmployeeException ex) {
             showError("خطأ في الاتصال بقاعدة البيانات");
             JOptionPane.showMessageDialog(this,
                 "تعذّر الاتصال بقاعدة البيانات.\n" +
@@ -290,6 +287,17 @@ public class LoginForm extends JFrame {
                 "تفاصيل الخطأ: " + ex.getMessage(),
                 "خطأ في قاعدة البيانات", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    /**
+     * يحوّل نوع كائن Person إلى مفتاح الدور (Admin/Manager/Employee)
+     * الذي يتوقعه MainDashboard وبقية النوافذ.
+     * ملاحظة: يجب فحص Admin و Manager قبل Employee لأن Manager يرث من Employee.
+     */
+    private String getRoleKey(Person p) {
+        if (p instanceof model.Admin)   return "Admin";
+        if (p instanceof model.Manager) return "Manager";
+        return "Employee";
     }
 
     private void showError(String msg) {

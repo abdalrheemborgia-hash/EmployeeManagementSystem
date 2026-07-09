@@ -6,11 +6,10 @@ import exception.EmployeeException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-import dataaccess.AttendanceDAO;
-import dataaccess.DatabaseConnection;
+import service.AttendanceService;
+import service.EmployeeService;
 
 import java.awt.*;
-import java.sql.*;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -27,7 +26,10 @@ public class AttendanceForm extends JFrame {
 
     private JTable            table;
     private DefaultTableModel tableModel;
-    private final AttendanceDAO dao;
+
+    // ✅ طبقة الخدمة (بدل DAO والاتصال المباشر بقاعدة البيانات)
+    private final AttendanceService attendanceService = new AttendanceService();
+    private final EmployeeService   employeeService   = new EmployeeService();
 
     // حقول التسجيل (للمشرف والمدير فقط)
     private JComboBox<String> empCombo, statusCombo;
@@ -53,7 +55,6 @@ public class AttendanceForm extends JFrame {
         this.currentRole   = role;
         this.currentUserId = userId;
         this.currentEmpId  = resolveEmployeeId(user, userId);
-        this.dao           = new AttendanceDAO();
         buildUI();
         loadData();
     }
@@ -332,7 +333,7 @@ public class AttendanceForm extends JFrame {
     }
 
     // ================================================================
-    //  العمليات
+    //  العمليات — عبر طبقة الخدمة (لا SQL في الواجهة)
     // ================================================================
 
     /** تسجيل حضور موظف (متاح للمشرف والمدير فقط) */
@@ -353,7 +354,7 @@ public class AttendanceForm extends JFrame {
             a.setCheckOut(checkOutF.getText().trim());
             a.setNotes(notesF.getText().trim());
 
-            dao.recordAttendance(a);
+            attendanceService.recordAttendance(a);
             ok("✔  تم تسجيل حضور " + emp + " بنجاح!");
             loadData();
 
@@ -367,28 +368,21 @@ public class AttendanceForm extends JFrame {
             List<Attendance> list;
 
             if (currentRole.equals("Employee")) {
-                // ====================================
-                // الموظف: سجلاته الشخصية فقط
-                // ====================================
                 if (currentEmpId > 0) {
-                    list = dao.getAttendanceByEmployee(currentEmpId);
+                    list = attendanceService.getAttendanceByEmployee(currentEmpId);
                 } else {
-                    // لم يُعثر على معرّف الموظف
                     tableModel.addRow(new Object[]{"—", "لا توجد سجلات مرتبطة بحسابك.", "", "", "", "", ""});
                     updateStats(new java.util.ArrayList<>());
                     return;
                 }
             } else {
-                // ====================================
-                // المشرف / المدير: جميع السجلات
-                // ====================================
-                list = dao.getAllAttendance();
+                list = attendanceService.getAllAttendance();
             }
 
             int counter = 1;
             for (Attendance a : list) {
                 tableModel.addRow(new Object[]{
-                    counter++,              // رقم تسلسلي بالأرقام الإنجليزية
+                    counter++,
                     a.getEmployeeName(),
                     a.getDate(),
                     a.getStatus(),
@@ -398,83 +392,42 @@ public class AttendanceForm extends JFrame {
                 });
             }
 
-            // تحديث الإحصائيات
             updateStats(list);
 
         } catch (EmployeeException ex) { err(ex.getMessage()); }
     }
 
     // ================================================================
-    //  مساعدات قاعدة البيانات
+    //  مساعدات تعتمد على طبقة الخدمة (لا SQL هنا)
     // ================================================================
 
-    /**
-     * يحدّد معرّف الموظف في جدول employees بناءً على اسمه أو بريده.
-     * يُستخدم لربط حساب المستخدم بسجل الموظف.
-     */
+    /** يحدّد معرّف الموظف المرتبط بالمستخدم الحالي عبر طبقة الخدمة. */
     private int resolveEmployeeId(String userName, int userId) {
         try {
-            // أولاً: ابحث بالبريد الإلكتروني عبر جدول users
-            PreparedStatement ps1 = DatabaseConnection.getConnection()
-                    .prepareStatement("SELECT email FROM users WHERE id=?");
-            ps1.setInt(1, userId);
-            ResultSet rs1 = ps1.executeQuery();
-            if (rs1.next()) {
-                String email = rs1.getString("email");
-                rs1.close(); ps1.close();
-
-                PreparedStatement ps2 = DatabaseConnection.getConnection()
-                        .prepareStatement("SELECT id FROM employees WHERE email=?");
-                ps2.setString(1, email);
-                ResultSet rs2 = ps2.executeQuery();
-                if (rs2.next()) {
-                    int empId = rs2.getInt("id");
-                    rs2.close(); ps2.close();
-                    return empId;
-                }
-                rs2.close(); ps2.close();
-            } else {
-                rs1.close(); ps1.close();
-            }
-
-            // ثانياً: ابحث بالاسم مباشرة
-            PreparedStatement ps3 = DatabaseConnection.getConnection()
-                    .prepareStatement("SELECT id FROM employees WHERE name=?");
-            ps3.setString(1, userName);
-            ResultSet rs3 = ps3.executeQuery();
-            if (rs3.next()) {
-                int empId = rs3.getInt("id");
-                rs3.close(); ps3.close();
-                return empId;
-            }
-            rs3.close(); ps3.close();
-
-        } catch (SQLException ex) { /* تجاهل */ }
-        return 0; // لم يُعثر
+            return employeeService.resolveEmployeeId(userName, userId);
+        } catch (EmployeeException ex) {
+            return 0; // لم يُعثر
+        }
     }
 
-    /** أسماء الموظفين النشطين لقائمة الاختيار */
+    /** أسماء الموظفين النشطين لقائمة الاختيار عبر طبقة الخدمة. */
     private String[] loadEmpNames() {
-        java.util.List<String> n = new java.util.ArrayList<>();
         try {
-            Statement s = DatabaseConnection.getConnection().createStatement();
-            ResultSet r = s.executeQuery("SELECT name FROM employees WHERE status='نشط' ORDER BY name");
-            while (r.next()) n.add(r.getString("name"));
-            r.close(); s.close();
-        } catch (SQLException ex) { n.add("لا يوجد موظفون"); }
-        return n.toArray(new String[0]);
+            List<String> names = employeeService.getActiveEmployeeNames();
+            if (names.isEmpty()) return new String[]{"لا يوجد موظفون"};
+            return names.toArray(new String[0]);
+        } catch (EmployeeException ex) {
+            return new String[]{"لا يوجد موظفون"};
+        }
     }
 
-    /** الحصول على معرّف الموظف بالاسم */
+    /** الحصول على معرّف الموظف بالاسم عبر طبقة الخدمة. */
     private int getEmpId(String name) {
         try {
-            PreparedStatement ps = DatabaseConnection.getConnection()
-                    .prepareStatement("SELECT id FROM employees WHERE name=?");
-            ps.setString(1, name);
-            ResultSet r = ps.executeQuery();
-            if (r.next()) { int id = r.getInt("id"); r.close(); ps.close(); return id; }
-        } catch (SQLException ex) { /* تجاهل */ }
-        return 0;
+            return employeeService.getEmployeeIdByName(name);
+        } catch (EmployeeException ex) {
+            return 0;
+        }
     }
 
     // ================================================================

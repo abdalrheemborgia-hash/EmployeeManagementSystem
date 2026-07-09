@@ -6,10 +6,11 @@ import exception.EmployeeException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-import dataaccess.DatabaseConnection;
+
 import service.EmployeeService;
 import java.awt.*;
-import java.sql.*;
+import service.DepartmentService;
+import exception.EmployeeException;
 import java.util.List;
 
 /**
@@ -22,7 +23,8 @@ public class EmployeeManagementForm extends JFrame {
     private JTable            table;
     private DefaultTableModel tableModel;
     private final EmployeeService employeeService; // استخدام كلاس الخدمة المباشر
-
+    
+    private final DepartmentService departmentService = new DepartmentService(); // ✅ أضف هذا
     private JTextField   nameF, emailF, phoneF, positionF, salaryF, hireDateF;
     private JComboBox<String> deptCombo, shiftCombo, statusCombo;
     private JLabel       idLbl;
@@ -302,17 +304,14 @@ public class EmployeeManagementForm extends JFrame {
     }
 
     private String[] loadDepts() {
-        java.util.List<String> d = new java.util.ArrayList<>();
         try {
-            Statement s = DatabaseConnection.getConnection().createStatement();
-            ResultSet r = s.executeQuery("SELECT name FROM departments ORDER BY name");
-            while (r.next()) d.add(r.getString("name"));
-            r.close(); s.close();
-        } catch (SQLException ex) { d.add("عام"); }
-        if (d.isEmpty()) d.add("عام");
-        return d.toArray(new String[0]);
+            List<String> depts = departmentService.getAllDepartmentNames();
+            if (depts.isEmpty()) return new String[]{"عام"};
+            return depts.toArray(new String[0]);
+        } catch (EmployeeException ex) {
+            return new String[]{"عام"};
+        }
     }
-
     private int fRow(JPanel p, GridBagConstraints g, int row, String lbl, Component field, boolean font) {
         g.gridwidth = 1;
         g.gridy = row;

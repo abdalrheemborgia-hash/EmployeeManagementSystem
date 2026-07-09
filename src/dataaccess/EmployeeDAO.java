@@ -126,4 +126,74 @@ public class EmployeeDAO {
         }
         return null;
     }
+    // ================================================================
+    //  دوال مساعدة (نُقلت من طبقة الواجهة إلى مكانها الصحيح)
+    // ================================================================
+
+    /** يُرجع أسماء الموظفين النشطين (لقوائم الاختيار). */
+    public List<String> getActiveEmployeeNames() throws EmployeeException {
+        List<String> names = new ArrayList<>();
+        try {
+            Statement s = DatabaseConnection.getConnection().createStatement();
+            ResultSet r = s.executeQuery("SELECT name FROM employees WHERE status='نشط' ORDER BY name");
+            while (r.next()) names.add(r.getString("name"));
+            r.close(); s.close();
+        } catch (SQLException e) {
+            throw new EmployeeException("فشل في جلب أسماء الموظفين: " + e.getMessage(), e);
+        }
+        return names;
+    }
+
+    /** يُرجع معرّف الموظف بالاسم (0 إن لم يوجد). */
+    public int getEmployeeIdByName(String name) throws EmployeeException {
+        try {
+            PreparedStatement ps = DatabaseConnection.getConnection()
+                    .prepareStatement("SELECT id FROM employees WHERE name=?");
+            ps.setString(1, name);
+            ResultSet r = ps.executeQuery();
+            int id = r.next() ? r.getInt("id") : 0;
+            r.close(); ps.close();
+            return id;
+        } catch (SQLException e) {
+            throw new EmployeeException("فشل في إيجاد معرّف الموظف: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * يربط حساب المستخدم بسجل الموظف: يبحث بالبريد عبر جدول users ثم بالاسم.
+     * يُرجع معرّف الموظف في جدول employees (0 إن لم يوجد).
+     */
+    public int resolveEmployeeId(String userName, int userId) throws EmployeeException {
+        try {
+            Connection conn = DatabaseConnection.getConnection();
+
+            // 1) ابحث بالبريد الإلكتروني عبر جدول users
+            PreparedStatement ps1 = conn.prepareStatement("SELECT email FROM users WHERE id=?");
+            ps1.setInt(1, userId);
+            ResultSet rs1 = ps1.executeQuery();
+            if (rs1.next()) {
+                String email = rs1.getString("email");
+                rs1.close(); ps1.close();
+
+                PreparedStatement ps2 = conn.prepareStatement("SELECT id FROM employees WHERE email=?");
+                ps2.setString(1, email);
+                ResultSet rs2 = ps2.executeQuery();
+                if (rs2.next()) {
+                    int empId = rs2.getInt("id");
+                    rs2.close(); ps2.close();
+                    return empId;
+                }
+                rs2.close(); ps2.close();
+            } else {
+                rs1.close(); ps1.close();
+            }
+
+            // 2) ابحث بالاسم مباشرة
+            return getEmployeeIdByName(userName);
+
+        } catch (SQLException e) {
+            throw new EmployeeException("فشل في ربط المستخدم بالموظف: " + e.getMessage(), e);
+        }
+    }
+
 }

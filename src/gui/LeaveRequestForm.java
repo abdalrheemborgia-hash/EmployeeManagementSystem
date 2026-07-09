@@ -6,7 +6,7 @@ import exception.EmployeeException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-import dataaccess.LeaveRequestDAO;
+import service.LeaveRequestService;
 
 import java.awt.*;
 import java.time.LocalDate;
@@ -21,7 +21,9 @@ public class LeaveRequestForm extends JFrame {
 
     private JTable            table;
     private DefaultTableModel tableModel;
-    private final LeaveRequestDAO dao;
+
+    // ✅ طبقة الخدمة (بدل DAO المباشر)
+    private final LeaveRequestService leaveService = new LeaveRequestService();
 
     private JComboBox<String> typeCombo;
     private JTextField        startF, endF, reasonF;
@@ -34,7 +36,6 @@ public class LeaveRequestForm extends JFrame {
         this.currentUser   = user;
         this.currentRole   = role;
         this.currentUserId = uid;
-        this.dao           = new LeaveRequestDAO();
         buildUI();
         loadData();
     }
@@ -163,6 +164,9 @@ public class LeaveRequestForm extends JFrame {
         return outer;
     }
 
+    // ================================================================
+    //  العمليات — عبر طبقة الخدمة (لا DAO في الواجهة)
+    // ================================================================
     private void submit() {
         if (reasonF.getText().trim().isEmpty()) { warn("يرجى إدخال سبب الإجازة."); return; }
         try {
@@ -171,7 +175,7 @@ public class LeaveRequestForm extends JFrame {
             r.setLeaveType((String) typeCombo.getSelectedItem());
             r.setStartDate(startF.getText().trim()); r.setEndDate(endF.getText().trim());
             r.setReason(reasonF.getText().trim()); r.setStatus("معلّق"); r.setReviewedBy("");
-            dao.submitLeaveRequest(r);
+            leaveService.submitLeaveRequest(r);
             ok("✔  تم تقديم طلب الإجازة بنجاح!");
             reasonF.setText(""); loadData();
         } catch (EmployeeException ex) { err(ex.getMessage()); }
@@ -180,8 +184,8 @@ public class LeaveRequestForm extends JFrame {
     private void updateStatus(String newStatus) {
         if (table.getSelectedRow() == -1) { warn("يرجى تحديد طلب من الجدول."); return; }
         try {
-            dao.updateLeaveStatus((int) tableModel.getValueAt(table.getSelectedRow(), 0),
-                                  newStatus, currentUser);
+            leaveService.updateLeaveStatus((int) tableModel.getValueAt(table.getSelectedRow(), 0),
+                                           newStatus, currentUser);
             ok("✔  تم " + ("مقبول".equals(newStatus) ? "قبول" : "رفض") + " الطلب.");
             loadData();
         } catch (EmployeeException ex) { err(ex.getMessage()); }
@@ -191,7 +195,7 @@ public class LeaveRequestForm extends JFrame {
         try {
             tableModel.setRowCount(0);
             List<LeaveRequest> list = currentRole.equals("Employee")
-                    ? dao.getLeaveByEmployee(currentUserId) : dao.getAllLeaveRequests();
+                    ? leaveService.getLeaveByEmployee(currentUserId) : leaveService.getAllLeaveRequests();
             for (LeaveRequest r : list)
                 tableModel.addRow(new Object[]{
                     r.getId(), r.getEmployeeName(), r.getLeaveType(),

@@ -3,10 +3,12 @@ package gui;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-import dataaccess.DatabaseConnection;
+import service.DepartmentService;
+import model.Department;
+import exception.EmployeeException;
 
 import java.awt.*;
-import java.sql.*;
+import java.util.List;
 
 /**
  * واجهة إدارة الأقسام.
@@ -19,6 +21,9 @@ public class DepartmentForm extends JFrame {
     private DefaultTableModel tableModel;
     private JTextField        nameF, descF, managerF;
     private JLabel            idLbl;
+
+    // ✅ طبقة الخدمة (بدل الاتصال المباشر بقاعدة البيانات)
+    private final DepartmentService departmentService = new DepartmentService();
 
     public DepartmentForm(String user, String role) {
         buildUI();
@@ -145,54 +150,57 @@ public class DepartmentForm extends JFrame {
         return outer;
     }
 
+    // ================================================================
+    //  العمليات — عبر طبقة الخدمة (لا SQL في الواجهة)
+    // ================================================================
     private void add() {
         if (nameF.getText().trim().isEmpty()) { warn("اسم القسم مطلوب."); return; }
         try {
-            PreparedStatement ps = DatabaseConnection.getConnection()
-                    .prepareStatement("INSERT INTO departments (name,description,manager_name) VALUES (?,?,?)");
-            ps.setString(1, nameF.getText().trim()); ps.setString(2, descF.getText().trim());
-            ps.setString(3, managerF.getText().trim()); ps.executeUpdate(); ps.close();
+            Department d = new Department();
+            d.setName(nameF.getText().trim());
+            d.setDescription(descF.getText().trim());
+            d.setManagerName(managerF.getText().trim());
+            departmentService.validateAndAddDepartment(d);
             ok("✔  تمت إضافة القسم بنجاح!"); loadData(); clear();
-        } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+        } catch (EmployeeException ex) { err("خطأ: " + ex.getMessage()); }
     }
 
     private void update() {
         if (table.getSelectedRow() == -1) { warn("يرجى تحديد قسم."); return; }
         try {
-            PreparedStatement ps = DatabaseConnection.getConnection()
-                    .prepareStatement("UPDATE departments SET name=?,description=?,manager_name=? WHERE id=?");
-            ps.setString(1, nameF.getText().trim()); ps.setString(2, descF.getText().trim());
-            ps.setString(3, managerF.getText().trim()); ps.setInt(4, Integer.parseInt(idLbl.getText()));
-            ps.executeUpdate(); ps.close();
+            Department d = new Department();
+            d.setId(Integer.parseInt(idLbl.getText()));
+            d.setName(nameF.getText().trim());
+            d.setDescription(descF.getText().trim());
+            d.setManagerName(managerF.getText().trim());
+            departmentService.updateDepartment(d);
             ok("✔  تم تعديل القسم!"); loadData();
-        } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+        } catch (NumberFormatException ex) { warn("يرجى تحديد قسم صحيح من الجدول."); }
+          catch (EmployeeException ex)     { err("خطأ: " + ex.getMessage()); }
     }
 
     private void delete() {
         if (table.getSelectedRow() == -1) { warn("يرجى تحديد قسم."); return; }
-        int ok = JOptionPane.showConfirmDialog(this, "هل تريد حذف هذا القسم؟",
+        int confirm = JOptionPane.showConfirmDialog(this, "هل تريد حذف هذا القسم؟",
                 "تأكيد الحذف", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-        if (ok == JOptionPane.YES_OPTION) {
+        if (confirm == JOptionPane.YES_OPTION) {
             try {
-                PreparedStatement ps = DatabaseConnection.getConnection()
-                        .prepareStatement("DELETE FROM departments WHERE id=?");
-                ps.setInt(1, Integer.parseInt(idLbl.getText())); ps.executeUpdate(); ps.close();
+                departmentService.deleteDepartment(Integer.parseInt(idLbl.getText()));
                 ok("✔  تم حذف القسم."); loadData(); clear();
-            } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+            } catch (NumberFormatException ex) { warn("يرجى تحديد قسم صحيح من الجدول."); }
+              catch (EmployeeException ex)     { err("خطأ: " + ex.getMessage()); }
         }
     }
 
     private void loadData() {
         try {
             tableModel.setRowCount(0);
-            Statement s = DatabaseConnection.getConnection().createStatement();
-            ResultSet r = s.executeQuery("SELECT * FROM departments ORDER BY name");
-            while (r.next()) tableModel.addRow(new Object[]{
-                r.getInt("id"), r.getString("name"),
-                r.getString("description"), r.getString("manager_name")
-            });
-            r.close(); s.close();
-        } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+            List<Department> list = departmentService.getAllDepartments();
+            for (Department d : list)
+                tableModel.addRow(new Object[]{
+                    d.getId(), d.getName(), d.getDescription(), d.getManagerName()
+                });
+        } catch (EmployeeException ex) { err("خطأ: " + ex.getMessage()); }
     }
 
     private void clear() {

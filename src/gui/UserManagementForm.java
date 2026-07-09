@@ -1,12 +1,14 @@
 package gui;
 
+import model.Person;
+import exception.EmployeeException;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-import dataaccess.DatabaseConnection;
+import service.UserService;
 
 import java.awt.*;
-import java.sql.*;
 
 /**
  * واجهة إدارة المستخدمين — متاحة لمدير النظام فقط.
@@ -18,6 +20,9 @@ public class UserManagementForm extends JFrame {
 
     private JTable            table;
     private DefaultTableModel tableModel;
+
+    // ✅ طبقة الخدمة (بدل الاتصال المباشر بقاعدة البيانات)
+    private final UserService userService = new UserService();
 
     // حقول النموذج
     private JTextField     nameF, emailF, phoneF;
@@ -40,11 +45,9 @@ public class UserManagementForm extends JFrame {
         setLocationRelativeTo(null);
         getContentPane().setBackground(AppColors.BG_MAIN);
 
-        // ---- شريط العنوان ----
         JPanel header = AppColors.headerBar("👤  إدارة المستخدمين", "مدير النظام: " + currentUser);
         header.setBackground(AppColors.DARK);
 
-        // ---- محتوى رئيسي ----
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         split.setDividerLocation(690);
         split.setBorder(null);
@@ -52,16 +55,13 @@ public class UserManagementForm extends JFrame {
         split.setLeftComponent(buildTablePanel());   // الجدول يسار
         split.setRightComponent(buildFormPanel());   // الإدخال يمين
 
-        //split.setLeftComponent(buildFormPanel());
-        //split.setRightComponent(buildTablePanel());
-
         add(header, BorderLayout.NORTH);
         add(split,  BorderLayout.CENTER);
         setVisible(true);
     }
 
     // ================================================================
-    //  لوحة النموذج (يسار)
+    //  لوحة النموذج
     // ================================================================
     private JPanel buildFormPanel() {
         JPanel outer = new JPanel(new BorderLayout());
@@ -80,7 +80,6 @@ public class UserManagementForm extends JFrame {
         g.insets = new Insets(6, 4, 6, 4);
         g.gridwidth = 2;
 
-        // عنوان البطاقة
         g.gridx = 0; g.gridy = 0;
         JLabel cardTitle = new JLabel("  بيانات المستخدم", SwingConstants.RIGHT);
         cardTitle.setFont(new Font("Arial", Font.BOLD, 15));
@@ -93,37 +92,29 @@ public class UserManagementForm extends JFrame {
         g.gridwidth = 1;
         int row = 1;
 
-        // المعرف
         row = addRow(card, g, row, "المعرّف:", idLbl = new JLabel("تلقائي"), false);
 
-        // الاسم
         nameF = AppColors.textField();
         row = addRow(card, g, row, "الاسم الكامل: *", nameF, true);
 
-        // البريد
         emailF = AppColors.textField();
         row = addRow(card, g, row, "اسم المستخدم: *", emailF, true);
 
-        // الهاتف
         phoneF = AppColors.textField();
         row = addRow(card, g, row, "رقم الهاتف:", phoneF, true);
 
-        // كلمة المرور
         passF = new JPasswordField();
         AppColors.styleField(passF);
         row = addRow(card, g, row, "كلمة المرور: *", passF, true);
 
-        // الدور
         roleCombo = new JComboBox<>(new String[]{"Employee", "Manager", "Admin"});
         AppColors.styleCombo(roleCombo);
         row = addRow(card, g, row, "الدور:", roleCombo, true);
 
-        // فاصل
         g.gridx = 0; g.gridy = row; g.gridwidth = 2;
         card.add(new JSeparator(), g);
         row++;
 
-        // ---- أزرار العمليات ----
         g.gridy = row; g.gridwidth = 2;
         JPanel btnGrid = new JPanel(new GridLayout(2, 2, 8, 8));
         btnGrid.setOpaque(false);
@@ -143,7 +134,6 @@ public class UserManagementForm extends JFrame {
         card.add(btnGrid, g);
         row++;
 
-        // تلميح
         g.gridy = row;
         JLabel tip = new JLabel(
             "<html><small>* الحقول المميزة بـ (*) مطلوبة</small></html>",
@@ -156,14 +146,13 @@ public class UserManagementForm extends JFrame {
     }
 
     // ================================================================
-    //  لوحة الجدول (يمين)
+    //  لوحة الجدول
     // ================================================================
     private JPanel buildTablePanel() {
         JPanel outer = new JPanel(new BorderLayout(0, 8));
         outer.setBackground(AppColors.BG_MAIN);
         outer.setBorder(BorderFactory.createEmptyBorder(12, 6, 12, 12));
 
-        // شريط البحث
         JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         searchBar.setBackground(AppColors.BG_MAIN);
         JLabel searchLbl = AppColors.label("🔍  بحث:");
@@ -176,7 +165,6 @@ public class UserManagementForm extends JFrame {
         searchBar.add(showAllBtn); searchBar.add(searchBtn);
         searchBar.add(searchF);   searchBar.add(searchLbl);
 
-        // الجدول
         String[] cols = {"المعرف", "الاسم", "اسم المستخدم", "الهاتف", "الدور"};
         tableModel = new DefaultTableModel(cols, 0) {
             public boolean isCellEditable(int r, int c) { return false; }
@@ -184,7 +172,6 @@ public class UserManagementForm extends JFrame {
         table = new JTable(tableModel);
         AppColors.styleTable(table);
 
-        // تلوين الصفوف حسب الدور
         table.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val,
@@ -211,7 +198,6 @@ public class UserManagementForm extends JFrame {
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createLineBorder(AppColors.DARK, 2));
 
-        // وسيلة إيضاح الألوان
         JPanel legend = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 4));
         legend.setBackground(AppColors.BG_MAIN);
         legend.add(colorDot(new Color(220, 30, 30),   "مدير النظام"));
@@ -229,72 +215,45 @@ public class UserManagementForm extends JFrame {
     }
 
     // ================================================================
-    //  العمليات
+    //  العمليات — عبر طبقة الخدمة (لا SQL في الواجهة)
     // ================================================================
 
     private void addUser() {
-        String name  = nameF.getText().trim();
-        String email = emailF.getText().trim();
-        String pass  = new String(passF.getPassword()).trim();
-
-        if (name.isEmpty() || email.isEmpty() || pass.isEmpty()) {
-            warn("يرجى ملء جميع الحقول المطلوبة (*)"); return;
-        }
+        String pass = new String(passF.getPassword()).trim();
         try {
-            PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement(
-                "INSERT INTO users (name, email, phone, password, role) VALUES (?,?,?,?,?)");
-            ps.setString(1, name);
-            ps.setString(2, email);
-            ps.setString(3, phoneF.getText().trim());
-            ps.setString(4, pass);
-            ps.setString(5, (String) roleCombo.getSelectedItem());
-            ps.executeUpdate(); ps.close();
+            userService.addUser(
+                nameF.getText().trim(),
+                emailF.getText().trim(),
+                phoneF.getText().trim(),
+                pass,
+                (String) roleCombo.getSelectedItem());
             ok("✔  تمت إضافة المستخدم بنجاح!");
             loadData(); clearForm();
-        } catch (SQLException ex) {
-            if (ex.getMessage().contains("UNIQUE"))
-                err("اسم المستخدم مسجّل مسبقاً. اختر اسم مستخدم آخر.");
-            else err("خطأ: " + ex.getMessage());
-        }
+        } catch (EmployeeException ex) { err(ex.getMessage()); }
     }
 
     private void updateUser() {
         if (table.getSelectedRow() == -1) { warn("يرجى تحديد مستخدم من الجدول."); return; }
         try {
             int id = Integer.parseInt(idLbl.getText());
-            String pass = new String(passF.getPassword()).trim();
-
-            // إذا تُرك حقل كلمة المرور فارغاً — لا نُغيّرها
-            if (pass.isEmpty()) {
-                PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement(
-                    "UPDATE users SET name=?, email=?, phone=?, role=? WHERE id=?");
-                ps.setString(1, nameF.getText().trim());
-                ps.setString(2, emailF.getText().trim());
-                ps.setString(3, phoneF.getText().trim());
-                ps.setString(4, (String) roleCombo.getSelectedItem());
-                ps.setInt(5, id);
-                ps.executeUpdate(); ps.close();
-            } else {
-                PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement(
-                    "UPDATE users SET name=?, email=?, phone=?, password=?, role=? WHERE id=?");
-                ps.setString(1, nameF.getText().trim());
-                ps.setString(2, emailF.getText().trim());
-                ps.setString(3, phoneF.getText().trim());
-                ps.setString(4, pass);
-                ps.setString(5, (String) roleCombo.getSelectedItem());
-                ps.setInt(6, id);
-                ps.executeUpdate(); ps.close();
-            }
+            String pass = new String(passF.getPassword()).trim(); // فارغة تعني: لا تُغيّر
+            userService.updateUser(
+                id,
+                nameF.getText().trim(),
+                emailF.getText().trim(),
+                phoneF.getText().trim(),
+                pass,
+                (String) roleCombo.getSelectedItem());
             ok("✔  تم تعديل بيانات المستخدم!");
             loadData();
-        } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+        } catch (NumberFormatException ex) { warn("يرجى تحديد مستخدم صحيح من الجدول."); }
+          catch (EmployeeException ex)     { err(ex.getMessage()); }
     }
 
     private void deleteUser() {
         if (table.getSelectedRow() == -1) { warn("يرجى تحديد مستخدم من الجدول."); return; }
         String name = tableModel.getValueAt(table.getSelectedRow(), 1).toString();
 
-        // منع حذف المدير الحالي
         if (name.equals(currentUser)) {
             warn("لا يمكنك حذف حسابك الخاص!"); return;
         }
@@ -304,12 +263,11 @@ public class UserManagementForm extends JFrame {
         if (confirm != JOptionPane.YES_OPTION) return;
         try {
             int id = Integer.parseInt(idLbl.getText());
-            PreparedStatement ps = DatabaseConnection.getConnection()
-                    .prepareStatement("DELETE FROM users WHERE id=?");
-            ps.setInt(1, id); ps.executeUpdate(); ps.close();
+            userService.deleteUser(id);
             ok("✔  تم حذف المستخدم.");
             loadData(); clearForm();
-        } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+        } catch (NumberFormatException ex) { warn("يرجى تحديد مستخدم صحيح من الجدول."); }
+          catch (EmployeeException ex)     { err(ex.getMessage()); }
     }
 
     private void fillForm() {
@@ -333,66 +291,52 @@ public class UserManagementForm extends JFrame {
     private void loadData() {
         try {
             tableModel.setRowCount(0);
-            Statement stmt = DatabaseConnection.getConnection().createStatement();
-            ResultSet rs   = stmt.executeQuery("SELECT id,name,email,phone,role FROM users ORDER BY role,name");
-            while (rs.next()) {
+            for (Person p : userService.getAllUsers()) {
                 tableModel.addRow(new Object[]{
-                    rs.getInt("id"), rs.getString("name"),
-                    rs.getString("email"), rs.getString("phone"),
-                    rs.getString("role")
+                    p.getId(), p.getName(), p.getEmail(), p.getPhone(), roleKey(p)
                 });
             }
-            rs.close(); stmt.close();
-        } catch (SQLException ex) { err("خطأ في تحميل البيانات: " + ex.getMessage()); }
+        } catch (EmployeeException ex) { err("خطأ في تحميل البيانات: " + ex.getMessage()); }
     }
 
     private void search(String kw) {
         try {
             tableModel.setRowCount(0);
-            PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement(
-                "SELECT id,name,email,phone,role FROM users WHERE name LIKE ? OR email LIKE ? OR role LIKE ?");
-            String q = "%" + kw + "%";
-            ps.setString(1, q); ps.setString(2, q); ps.setString(3, q);
-            ResultSet rs = ps.executeQuery();
-            while (rs.next()) {
+            for (Person p : userService.searchUsers(kw)) {
                 tableModel.addRow(new Object[]{
-                    rs.getInt("id"), rs.getString("name"),
-                    rs.getString("email"), rs.getString("phone"),
-                    rs.getString("role")
+                    p.getId(), p.getName(), p.getEmail(), p.getPhone(), roleKey(p)
                 });
             }
-            rs.close(); ps.close();
-        } catch (SQLException ex) { err("خطأ: " + ex.getMessage()); }
+        } catch (EmployeeException ex) { err("خطأ: " + ex.getMessage()); }
+    }
+
+    /**
+     * يحوّل نوع كائن Person إلى مفتاح الدور النصي.
+     * ملاحظة: نفحص Admin و Manager قبل Employee لأن Manager يرث من Employee.
+     */
+    private String roleKey(Person p) {
+        if (p instanceof model.Admin)   return "Admin";
+        if (p instanceof model.Manager) return "Manager";
+        return "Employee";
     }
 
     // ================================================================
     //  مساعدات UI
     // ================================================================
-
-    /** يضيف صفاً من تسمية + حقل إلى اللوحة */
     private int addRow(JPanel p, GridBagConstraints g, int row,
             String labelText, Component field, boolean isComp) {
+        g.gridwidth = 1;
+        g.gridy = row;
+        g.gridx = 0;
+        g.weightx = 0.65;
+        if (isComp) field.setFont(new Font("Arial", Font.PLAIN, 13));
+        p.add(field, g);
+        g.gridx = 1;
+        g.weightx = 0.35;
+        p.add(AppColors.label(labelText), g);
+        return row + 1;
+    }
 
-g.gridwidth = 1;
-g.gridy = row;
-
-// الحقل أولاً
-g.gridx = 0;
-g.weightx = 0.65;
-if (isComp) {
- field.setFont(new Font("Arial", Font.PLAIN, 13));
-}
-p.add(field, g);
-
-// التسمية ثانياً
-g.gridx = 1;
-g.weightx = 0.35;
-p.add(AppColors.label(labelText), g);
-
-return row + 1;
-}						
-
-    /** نقطة لوسيلة الإيضاح */
     private JPanel colorDot(Color c, String text) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         p.setOpaque(false);
